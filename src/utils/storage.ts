@@ -1,4 +1,3 @@
-import { INITIAL_ARCHIVE_STATE } from '../data/catalog';
 import {
   CatalogFilm,
   GoreLevel,
@@ -13,12 +12,19 @@ import {
 
 const STORAGE_KEY = 'horror_diary_archive_v1';
 
+function createEmptyArchiveState(): HorrorArchiveState {
+  return {
+    movies: [],
+    watchRecords: [],
+    watchlist: [],
+  };
+}
+
 export function loadArchiveState(): HorrorArchiveState {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_ARCHIVE_STATE));
-      return INITIAL_ARCHIVE_STATE;
+      return createEmptyArchiveState();
     }
     const parsed = JSON.parse(raw) as HorrorArchiveState;
     if (
@@ -29,9 +35,9 @@ export function loadArchiveState(): HorrorArchiveState {
     ) {
       return parsed;
     }
-    return INITIAL_ARCHIVE_STATE;
+    return createEmptyArchiveState();
   } catch {
-    return INITIAL_ARCHIVE_STATE;
+    return createEmptyArchiveState();
   }
 }
 
@@ -44,8 +50,12 @@ export function saveArchiveState(state: HorrorArchiveState): void {
 }
 
 export function resetArchiveState(): HorrorArchiveState {
-  saveArchiveState(INITIAL_ARCHIVE_STATE);
-  return INITIAL_ARCHIVE_STATE;
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // Ignore storage errors gracefully
+  }
+  return createEmptyArchiveState();
 }
 
 export function parseArchiveBackup(jsonText: string): HorrorArchiveState | null {

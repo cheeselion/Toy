@@ -1,6 +1,5 @@
 import {
   findCatalogMatchForMovie,
-  INITIAL_ARCHIVE_STATE,
   isLegacyGeneratedPosterUrl,
 } from '../data/catalog';
 import {
@@ -19,25 +18,64 @@ import {
 const LEGACY_V1_KEY = 'horror_diary_archive_v1';
 const STORAGE_V2_KEY = 'horror_diary_archive_v2';
 
-function isUntouchedInitialSeed(archive: HorrorArchiveState): boolean {
-  if (
-    archive.movies.length !== INITIAL_ARCHIVE_STATE.movies.length ||
-    archive.watchRecords.length !== INITIAL_ARCHIVE_STATE.watchRecords.length ||
-    archive.watchlist.length !== INITIAL_ARCHIVE_STATE.watchlist.length
-  ) {
-    return false;
-  }
-  const initMovieIds = new Set(INITIAL_ARCHIVE_STATE.movies.map((m) => m.movie_id));
-  const initRecordIds = new Set(
-    INITIAL_ARCHIVE_STATE.watchRecords.map((r) => r.record_id)
-  );
-  const initWatchlistIds = new Set(
-    INITIAL_ARCHIVE_STATE.watchlist.map((w) => w.watchlist_id)
-  );
+const LEGACY_SEED_MOVIE_IDS = new Set([
+  'mov-hereditary',
+  'mov-shining',
+  'mov-ringu',
+  'mov-thing',
+  'mov-midsommar',
+  'mov-substance',
+  'mov-cure',
+  'mov-wailing',
+  'mov-suspiria',
+]);
+const LEGACY_SEED_RECORD_IDS = new Set([
+  'rec-hereditary',
+  'rec-shining',
+  'rec-ringu',
+  'rec-thing',
+  'rec-midsommar',
+  'rec-substance',
+]);
+const LEGACY_SEED_WATCHLIST_IDS = new Set([
+  'wl-cure',
+  'wl-wailing',
+  'wl-suspiria',
+]);
+
+function isUntouchedLegacySeed(archive: HorrorArchiveState): boolean {
+  const hasAny =
+    archive.movies.length > 0 ||
+    archive.watchRecords.length > 0 ||
+    archive.watchlist.length > 0;
+  if (!hasAny) return false;
+
   return (
-    archive.movies.every((m) => initMovieIds.has(m.movie_id)) &&
-    archive.watchRecords.every((r) => initRecordIds.has(r.record_id)) &&
-    archive.watchlist.every((w) => initWatchlistIds.has(w.watchlist_id))
+    archive.movies.every((m) => LEGACY_SEED_MOVIE_IDS.has(m.movie_id)) &&
+    archive.watchRecords.every((r) => LEGACY_SEED_RECORD_IDS.has(r.record_id)) &&
+    archive.watchlist.every((w) => LEGACY_SEED_WATCHLIST_IDS.has(w.watchlist_id))
+  );
+}
+
+function isArchiveEmpty(archive: HorrorArchiveState): boolean {
+  return (
+    archive.movies.length === 0 &&
+    archive.watchRecords.length === 0 &&
+    archive.watchlist.length === 0
+  );
+}
+
+function isStoreCompletelyPristine(store: LocalStoreV2): boolean {
+  return (
+    isArchiveEmpty(store.archive) &&
+    store.tombstones.length === 0 &&
+    store.outbox.length === 0 &&
+    !store.isGuestDirty &&
+    !store.lastSyncedAt &&
+    !store.lastSyncedUid &&
+    !store.settings.display_name &&
+    (store.settings.default_watch_method === undefined ||
+      store.settings.default_watch_method === '独自')
   );
 }
 
@@ -108,10 +146,14 @@ function normalizeArchiveTimestamps(archive: HorrorArchiveState): HorrorArchiveS
   };
 }
 
-export function createSeededLocalStoreV2(): LocalStoreV2 {
+export function createEmptyLocalStoreV2(): LocalStoreV2 {
   return {
     version: 2,
-    archive: normalizeArchiveTimestamps(INITIAL_ARCHIVE_STATE),
+    archive: {
+      movies: [],
+      watchRecords: [],
+      watchlist: [],
+    },
     tombstones: [],
     outbox: [],
     settings: { default_watch_method: '独自' },
@@ -134,16 +176,28 @@ export function loadLocalStoreV2(): LocalStoreV2 {
         Array.isArray(parsed.archive.watchRecords) &&
         Array.isArray(parsed.archive.watchlist)
       ) {
+        const candidateArchive: HorrorArchiveState = {
+          movies: parsed.archive.movies,
+          watchRecords: parsed.archive.watchRecords,
+          watchlist: parsed.archive.watchlist,
+        };
+
+        if (
+          !parsed.isGuestDirty &&
+          !parsed.lastSyncedUid &&
+          isUntouchedLegacySeed(candidateArchive)
+        ) {
+          localStorage.removeItem(STORAGE_V2_KEY);
+          localStorage.removeItem(LEGACY_V1_KEY);
+          return createEmptyLocalStoreV2();
+        }
+
         const hadLegacy = parsed.archive.movies.some((m) =>
           isLegacyGeneratedPosterUrl(m.poster_url)
         );
         const store: LocalStoreV2 = {
           version: 2,
-          archive: normalizeArchiveTimestamps({
-            movies: parsed.archive.movies,
-            watchRecords: parsed.archive.watchRecords,
-            watchlist: parsed.archive.watchlist,
-          }),
+          archive: normalizeArchiveTimestamps(candidateArchive),
           tombstones: Array.isArray(parsed.tombstones) ? parsed.tombstones : [],
           outbox: Array.isArray(parsed.outbox) ? parsed.outbox : [],
           settings: parsed.settings || { default_watch_method: '独自' },
@@ -158,7 +212,7 @@ export function loadLocalStoreV2(): LocalStoreV2 {
       }
     }
 
-    // Migrate non-destructively from v1 if present
+    // Migrate non-destructively from v1 if present with real user data
     const rawV1 = localStorage.getItem(LEGACY_V1_KEY);
     if (rawV1) {
       const parsedV1 = JSON.parse(rawV1) as Partial<HorrorArchiveState>;
@@ -168,18 +222,25 @@ export function loadLocalStoreV2(): LocalStoreV2 {
         Array.isArray(parsedV1.watchRecords) &&
         Array.isArray(parsedV1.watchlist)
       ) {
-        const normalized = normalizeArchiveTimestamps({
+        const candidateV1: HorrorArchiveState = {
           movies: parsedV1.movies,
           watchRecords: parsedV1.watchRecords,
           watchlist: parsedV1.watchlist,
-        });
+        };
+
+        if (isUntouchedLegacySeed(candidateV1) || isArchiveEmpty(candidateV1)) {
+          localStorage.removeItem(LEGACY_V1_KEY);
+          return createEmptyLocalStoreV2();
+        }
+
+        const normalized = normalizeArchiveTimestamps(candidateV1);
         const migrated: LocalStoreV2 = {
           version: 2,
           archive: normalized,
           tombstones: [],
           outbox: [],
           settings: { default_watch_method: '独自' },
-          isGuestDirty: !isUntouchedInitialSeed(normalized),
+          isGuestDirty: true,
           lastSyncedAt: null,
           lastSyncedUid: null,
         };
@@ -188,16 +249,19 @@ export function loadLocalStoreV2(): LocalStoreV2 {
       }
     }
 
-    const fresh = createSeededLocalStoreV2();
-    saveLocalStoreV2(fresh);
-    return fresh;
+    return createEmptyLocalStoreV2();
   } catch {
-    return createSeededLocalStoreV2();
+    return createEmptyLocalStoreV2();
   }
 }
 
 export function saveLocalStoreV2(store: LocalStoreV2): void {
   try {
+    if (isStoreCompletelyPristine(store)) {
+      localStorage.removeItem(STORAGE_V2_KEY);
+      localStorage.removeItem(LEGACY_V1_KEY);
+      return;
+    }
     localStorage.setItem(STORAGE_V2_KEY, JSON.stringify(store));
     // Mirror archive payload to legacy key so existing backups/tools stay compatible
     localStorage.setItem(LEGACY_V1_KEY, JSON.stringify(store.archive));
@@ -346,7 +410,7 @@ export function applyArchiveMutationWithTracking(
     isGuestDirty:
       options?.markGuestDirty !== undefined
         ? options.markGuestDirty
-        : prevStore.isGuestDirty || !isUntouchedInitialSeed(nextArchive),
+        : prevStore.isGuestDirty || !isArchiveEmpty(nextArchive),
   };
 }
 

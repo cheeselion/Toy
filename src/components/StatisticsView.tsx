@@ -818,7 +818,9 @@ export const StatisticsView: React.FC<StatisticsViewProps> = ({
             当前周期暂无观影记录
           </p>
           <p className="text-xs text-[#858585]">
-            记录一部电影或切换至「全部时间」查看你的完整历史观影档案。
+            {watchedEntries.length === 0
+              ? '暂无观影记录，点击底部「+」开始记录你的第一部恐怖电影。'
+              : '记录一部电影或切换至「全部时间」查看你的完整历史观影档案。'}
           </p>
           {!viewAllTime && watchedEntries.length > 0 && (
             <button
@@ -1214,11 +1216,11 @@ export const StatisticsView: React.FC<StatisticsViewProps> = ({
               className="inline-flex items-center gap-1.5 rounded-xl border border-white/[0.08] bg-[#141418] hover:border-white/[0.2] text-[#858585] hover:text-[#E8E2D8] text-xs font-medium px-3.5 py-2 min-h-[40px] transition-colors cursor-pointer whitespace-nowrap"
             >
               <RotateCcw className="h-3.5 w-3.5" />
-              <span>恢复示例档案</span>
+              <span>清空本地档案</span>
             </button>
           ) : (
             <div className="inline-flex items-center gap-2 rounded-xl border border-[#782C35] bg-[#782C35]/20 px-3 py-1.5 min-h-[40px]">
-              <span className="text-xs text-[#E8E2D8]">确认覆盖当前档案？</span>
+              <span className="text-xs text-[#E8E2D8]">确认清空本地档案？</span>
               <button
                 type="button"
                 onClick={() => {
@@ -1226,7 +1228,7 @@ export const StatisticsView: React.FC<StatisticsViewProps> = ({
                   setConfirmReset(false);
                   setBackupNotice({
                     type: 'success',
-                    text: '已恢复初始示例档案数据。',
+                    text: '已清空本地档案数据。',
                   });
                 }}
                 className="text-xs font-semibold text-[#B98B65] hover:underline px-1 cursor-pointer"

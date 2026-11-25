@@ -63,7 +63,7 @@ import {
 import {
   applyArchiveMutationWithTracking,
   cloudHasAnyActiveData,
-  createSeededLocalStoreV2,
+  createEmptyLocalStoreV2,
   loadLocalStoreV2,
   resolveGuestCloudMigration,
   saveLocalStoreV2,
@@ -553,8 +553,8 @@ export default function App() {
     setSyncError(null);
 
     if (clearLocalCache) {
-      const seeded = createSeededLocalStoreV2();
-      setLocalStore(seeded);
+      const emptyStore = createEmptyLocalStoreV2();
+      setLocalStore(emptyStore);
     } else {
       setLocalStore((prev) => ({
         ...prev,
@@ -973,6 +973,11 @@ export default function App() {
   };
 
   const handleResetArchive = () => {
+    if (!currentUser) {
+      resetArchiveState();
+      setLocalStore(createEmptyLocalStoreV2());
+      return;
+    }
     mutateArchive(() => resetArchiveState(), { markGuestDirty: false });
   };
 

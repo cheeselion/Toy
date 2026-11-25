@@ -449,19 +449,25 @@ export const MovieDetailModal: React.FC<MovieDetailModalProps> = ({
             <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
               <div>
                 <h3 className="font-display text-2xl font-semibold text-[#F2EFE9]">
-                  {reviewAccessMode === 'full' ? '观众总评' : '精选评价'}
+                  {allReviews.length === 0
+                    ? '观众评价'
+                    : reviewAccessMode === 'full'
+                      ? '观众总评'
+                      : '精选评价'}
                 </h3>
-                {reviewAccessMode === 'positiveOnly' ? (
-                  <p className="mt-1 text-xs text-[#8C8881] flex items-center gap-1.5">
-                    <Lock className="h-3 w-3 text-[#8C8881] shrink-0" />
-                    <span>
-                      当前仅可筛选好评（4–5 星）；完整总评需在「片库」搜索后查看
-                    </span>
-                  </p>
-                ) : (
-                  <p className="mt-1 text-xs text-[#8C8881]">
-                    已通过片库检索解锁完整星级分布与全部正反评价
-                  </p>
+                {allReviews.length > 0 && (
+                  reviewAccessMode === 'positiveOnly' ? (
+                    <p className="mt-1 text-xs text-[#8C8881] flex items-center gap-1.5">
+                      <Lock className="h-3 w-3 text-[#8C8881] shrink-0" />
+                      <span>
+                        当前仅可筛选好评（4–5 星）；完整总评需在「片库」搜索后查看
+                      </span>
+                    </p>
+                  ) : (
+                    <p className="mt-1 text-xs text-[#8C8881]">
+                      已通过片库检索解锁完整星级分布与全部正反评价
+                    </p>
+                  )
                 )}
               </div>
             </div>
