@@ -1,0 +1,6 @@
+{
+  "name": "Horror Diary",
+  "description": "专为恐怖片爱好者打造的个人观影档案馆，用于记录观看经历、评价恐怖体验、收藏电影及探索个人观影偏好。",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

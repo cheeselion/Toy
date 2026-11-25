@@ -1,0 +1,390 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Private user account profile and personal archive preferences isolated by Firebase Auth UID.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Firebase Authentication UID of the owner."
+        },
+        "email": {
+          "type": "string",
+          "maxLength": 254,
+          "description": "Primary email address associated with the user account."
+        },
+        "display_name": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 32,
+          "pattern": "^[A-Za-z_.!@#$%^&*+=~?:;-]{2,32}$",
+          "description": "Unique English + symbol nickname usable for login."
+        },
+        "default_watch_method": {
+          "type": "string",
+          "enum": ["独自", "与朋友", "其他"],
+          "description": "Preferred default watch method setting."
+        },
+        "created_at": {
+          "type": "string",
+          "maxLength": 40,
+          "description": "ISO timestamp when profile was created."
+        },
+        "updated_at": {
+          "type": "string",
+          "maxLength": 40,
+          "description": "ISO timestamp when profile settings were updated."
+        },
+        "server_updated_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server-assigned Firestore request timestamp."
+        }
+      },
+      "required": ["uid", "created_at", "updated_at", "server_updated_at"]
+    },
+    "NicknameClaim": {
+      "title": "NicknameClaim",
+      "description": "Immutable unique nickname-to-account claim used for nickname uniqueness enforcement and nickname login lookup.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "nickname": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 32,
+          "pattern": "^[A-Za-z_.!@#$%^&*+=~?:;-]{2,32}$"
+        },
+        "nickname_key": {
+          "type": "string",
+          "minLength": 7,
+          "maxLength": 128,
+          "pattern": "^nick_[0-9a-f]+$"
+        },
+        "login_email": {
+          "type": "string",
+          "maxLength": 254
+        },
+        "created_at": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "server_updated_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["uid", "nickname", "nickname_key", "login_email", "created_at", "server_updated_at"]
+    },
+    "CloudMovie": {
+      "title": "CloudMovie",
+      "description": "Horror movie metadata document synced under a specific user's archive.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "movie_id": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "original_title": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "poster_url": {
+          "type": "string",
+          "maxLength": 250000
+        },
+        "release_date": {
+          "type": "string",
+          "maxLength": 20
+        },
+        "release_year": {
+          "type": "integer"
+        },
+        "director": {
+          "type": "string",
+          "maxLength": 160
+        },
+        "country": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "duration": {
+          "type": "integer"
+        },
+        "synopsis": {
+          "type": "string",
+          "maxLength": 4000
+        },
+        "genres": {
+          "type": "array",
+          "description": "Bounded horror sub-genres (up to 13)."
+        },
+        "external_source": {
+          "type": "string",
+          "enum": ["tmdb"]
+        },
+        "external_id": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "external_rating": {
+          "type": "number"
+        },
+        "created_at": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "updated_at": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "deleted_at": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "server_updated_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["uid", "movie_id", "title", "genres", "created_at", "updated_at", "server_updated_at"]
+    },
+    "MovieMetadataCache": {
+      "title": "MovieMetadataCache",
+      "description": "Independent cached external movie metadata records separated from personal watch logs.",
+      "type": "object",
+      "properties": {
+        "cache_id": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "external_source": {
+          "type": "string",
+          "enum": ["tmdb"]
+        },
+        "external_id": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "original_title": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "poster_url": {
+          "type": "string",
+          "maxLength": 1000
+        },
+        "release_date": {
+          "type": "string",
+          "maxLength": 20
+        },
+        "release_year": {
+          "type": "integer"
+        },
+        "director": {
+          "type": "string",
+          "maxLength": 160
+        },
+        "country": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "duration": {
+          "type": "integer"
+        },
+        "synopsis": {
+          "type": "string",
+          "maxLength": 4000
+        },
+        "genres": {
+          "type": "array"
+        },
+        "external_rating": {
+          "type": "number"
+        },
+        "cached_at": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "server_updated_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["cache_id", "external_source", "external_id", "title", "genres", "cached_at", "server_updated_at"]
+    },
+    "CloudWatchRecord": {
+      "title": "CloudWatchRecord",
+      "description": "Personal watched experience record synced under a user's archive.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "record_id": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "movie_id": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "watch_date": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "rating": {
+          "type": "number"
+        },
+        "review": {
+          "type": "string",
+          "maxLength": 10000
+        },
+        "horror_level": {
+          "type": "integer"
+        },
+        "gore_level": {
+          "type": "string",
+          "enum": ["低", "中", "高", "极高"]
+        },
+        "scare_types": {
+          "type": "array",
+          "description": "Scare element tags (up to 6)."
+        },
+        "watch_method": {
+          "type": "string",
+          "enum": ["独自", "与朋友", "其他"]
+        },
+        "watch_count": {
+          "type": "integer"
+        },
+        "created_at": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "updated_at": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "deleted_at": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "server_updated_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["uid", "record_id", "movie_id", "scare_types", "watch_count", "created_at", "updated_at", "server_updated_at"]
+    },
+    "CloudWatchlistItem": {
+      "title": "CloudWatchlistItem",
+      "description": "Personal watchlist entry synced under a user's archive.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "watchlist_id": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "movie_id": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "added_at": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "note": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "recommended_by": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "planned_date": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["high", "medium", "low"]
+        },
+        "updated_at": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "deleted_at": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "server_updated_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["uid", "watchlist_id", "movie_id", "added_at", "updated_at", "server_updated_at"]
+    }
+  },
+  "firestore": {
+    "/nicknames/{nicknameKey}": {
+      "schema": { "$ref": "#/entities/NicknameClaim" },
+      "description": "Unique lowercase hex-keyed nickname registry enabling uniqueness enforcement and nickname login resolution."
+    },
+    "/users/{uid}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Owner-only user profile and archive settings."
+    },
+    "/users/{uid}/movies/{movieId}": {
+      "schema": { "$ref": "#/entities/CloudMovie" },
+      "description": "User-isolated collection of horror movies."
+    },
+    "/users/{uid}/watchRecords/{recordId}": {
+      "schema": { "$ref": "#/entities/CloudWatchRecord" },
+      "description": "User-isolated collection of watched movie logs."
+    },
+    "/users/{uid}/watchlist/{watchlistId}": {
+      "schema": { "$ref": "#/entities/CloudWatchlistItem" },
+      "description": "User-isolated collection of watchlist items."
+    },
+    "/movieMetadataCache/{cacheId}": {
+      "schema": { "$ref": "#/entities/MovieMetadataCache" },
+      "description": "Independent shared cache of external movie metadata records separated from user watch logs."
+    }
+  }
+}

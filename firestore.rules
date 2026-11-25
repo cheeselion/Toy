@@ -1,0 +1,330 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global Safety Net: deny everything by default
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Hardened Global Helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidNickname(nickname) {
+      return nickname is string
+        && nickname.size() >= 2
+        && nickname.size() <= 32
+        && nickname.matches('^[A-Za-z_.!@#$%^&*+=~?:;-]{2,32}$')
+        && nickname.matches('.*[A-Za-z].*');
+    }
+
+    function isValidNicknameKey(key) {
+      return key is string
+        && key.size() >= 9
+        && key.size() <= 128
+        && key.matches('^nick_[0-9a-f]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isOptionalString(data, field, maxLen) {
+      return !(field in data) || (data[field] is string && data[field].size() <= maxLen);
+    }
+
+    function isOptionalInt(data, field, minVal, maxVal) {
+      return !(field in data) || (data[field] is int && data[field] >= minVal && data[field] <= maxVal);
+    }
+
+    function isOptionalNumber(data, field, minVal, maxVal) {
+      return !(field in data) || ((data[field] is int || data[field] is float) && data[field] >= minVal && data[field] <= maxVal);
+    }
+
+    function isValidGenreList(genres) {
+      return genres is list
+        && genres.size() <= 13
+        && genres.hasOnly([
+          '心理恐怖', '超自然 / 鬼怪', '民俗恐怖', '宗教恐怖', '血腥暴力',
+          '身体恐怖', '邪典', '丧尸', '怪物', '生存恐怖', '伪纪录片', 'Slasher', '科幻恐怖'
+        ]);
+    }
+
+    function isValidScareTypeList(scareTypes) {
+      return scareTypes is list
+        && scareTypes.size() <= 6
+        && scareTypes.hasOnly([
+          'Jump Scare', '心理压迫', '氛围营造', '生理不适', '真实感 / 代入感', '余韵 / 后劲'
+        ]);
+    }
+
+    function isValidUserProfile(data, uid) {
+      return data.keys().hasAll(['uid', 'created_at', 'updated_at', 'server_updated_at'])
+        && data.keys().hasOnly([
+          'uid', 'email', 'display_name', 'default_watch_method',
+          'created_at', 'updated_at', 'server_updated_at'
+        ])
+        && data.uid is string
+        && data.uid == uid
+        && data.uid == request.auth.uid
+        && isValidId(data.uid)
+        && isOptionalString(data, 'email', 254)
+        && (!('display_name' in data) || isValidNickname(data.display_name))
+        && (!('default_watch_method' in data) || data.default_watch_method in ['独自', '与朋友', '其他'])
+        && data.created_at is string && data.created_at.size() >= 1 && data.created_at.size() <= 40
+        && data.updated_at is string && data.updated_at.size() >= 1 && data.updated_at.size() <= 40
+        && data.server_updated_at is timestamp
+        && data.server_updated_at == request.time;
+    }
+
+    function isValidNicknameClaim(data, nicknameKey) {
+      return data.keys().hasAll([
+          'uid', 'nickname', 'nickname_key', 'login_email', 'created_at', 'server_updated_at'
+        ])
+        && data.keys().hasOnly([
+          'uid', 'nickname', 'nickname_key', 'login_email', 'created_at', 'server_updated_at'
+        ])
+        && data.uid is string
+        && data.uid == request.auth.uid
+        && isValidId(data.uid)
+        && isValidNickname(data.nickname)
+        && data.nickname_key is string
+        && data.nickname_key == nicknameKey
+        && isValidNicknameKey(data.nickname_key)
+        && data.login_email is string
+        && data.login_email.size() >= 3
+        && data.login_email.size() <= 254
+        && data.created_at is string && data.created_at.size() >= 1 && data.created_at.size() <= 40
+        && data.server_updated_at is timestamp
+        && data.server_updated_at == request.time;
+    }
+
+    function isValidMovie(data, uid, movieId) {
+      return data.keys().hasAll(['uid', 'movie_id', 'title', 'genres', 'created_at', 'updated_at', 'server_updated_at'])
+        && data.keys().hasOnly([
+          'uid', 'movie_id', 'title', 'original_title', 'poster_url',
+          'release_date', 'release_year', 'director', 'country', 'duration', 'synopsis',
+          'genres', 'external_source', 'external_id', 'external_rating',
+          'created_at', 'updated_at', 'deleted_at', 'server_updated_at'
+        ])
+        && data.uid is string && data.uid == uid && data.uid == request.auth.uid && isValidId(data.uid)
+        && data.movie_id is string && data.movie_id == movieId && isValidId(data.movie_id)
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 200
+        && isOptionalString(data, 'original_title', 200)
+        && isOptionalString(data, 'poster_url', 250000)
+        && isOptionalString(data, 'release_date', 20)
+        && isOptionalInt(data, 'release_year', 1880, 2100)
+        && isOptionalString(data, 'director', 160)
+        && isOptionalString(data, 'country', 120)
+        && isOptionalInt(data, 'duration', 1, 1200)
+        && isOptionalString(data, 'synopsis', 4000)
+        && isValidGenreList(data.genres)
+        && (!('external_source' in data) || data.external_source in ['tmdb'])
+        && isOptionalString(data, 'external_id', 64)
+        && isOptionalNumber(data, 'external_rating', 0, 10)
+        && data.created_at is string && data.created_at.size() >= 1 && data.created_at.size() <= 40
+        && data.updated_at is string && data.updated_at.size() >= 1 && data.updated_at.size() <= 40
+        && isOptionalString(data, 'deleted_at', 40)
+        && data.server_updated_at is timestamp
+        && data.server_updated_at == request.time;
+    }
+
+    function isValidMovieMetadataCache(data, cacheId) {
+      return data.keys().hasAll([
+          'cache_id', 'external_source', 'external_id', 'title', 'genres', 'cached_at', 'server_updated_at'
+        ])
+        && data.keys().hasOnly([
+          'cache_id', 'external_source', 'external_id', 'title', 'original_title',
+          'poster_url', 'release_date', 'release_year', 'director', 'country',
+          'duration', 'synopsis', 'genres', 'external_rating', 'cached_at', 'server_updated_at'
+        ])
+        && data.cache_id is string && data.cache_id == cacheId && isValidId(data.cache_id)
+        && data.external_source is string && data.external_source in ['tmdb']
+        && data.external_id is string && data.external_id.size() >= 1 && data.external_id.size() <= 64
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 200
+        && isOptionalString(data, 'original_title', 200)
+        && isOptionalString(data, 'poster_url', 1000)
+        && isOptionalString(data, 'release_date', 20)
+        && isOptionalInt(data, 'release_year', 1880, 2100)
+        && isOptionalString(data, 'director', 160)
+        && isOptionalString(data, 'country', 120)
+        && isOptionalInt(data, 'duration', 1, 1200)
+        && isOptionalString(data, 'synopsis', 4000)
+        && isValidGenreList(data.genres)
+        && isOptionalNumber(data, 'external_rating', 0, 10)
+        && data.cached_at is string && data.cached_at.size() >= 1 && data.cached_at.size() <= 40
+        && data.server_updated_at is timestamp
+        && data.server_updated_at == request.time;
+    }
+
+    function isValidWatchRecord(data, uid, recordId) {
+      return data.keys().hasAll([
+          'uid', 'record_id', 'movie_id', 'scare_types', 'watch_count',
+          'created_at', 'updated_at', 'server_updated_at'
+        ])
+        && data.keys().hasOnly([
+          'uid', 'record_id', 'movie_id', 'watch_date', 'rating', 'review',
+          'horror_level', 'gore_level', 'scare_types', 'watch_method', 'watch_count',
+          'created_at', 'updated_at', 'deleted_at', 'server_updated_at'
+        ])
+        && data.uid is string && data.uid == uid && data.uid == request.auth.uid && isValidId(data.uid)
+        && data.record_id is string && data.record_id == recordId && isValidId(data.record_id)
+        && data.movie_id is string && isValidId(data.movie_id)
+        && isOptionalString(data, 'watch_date', 40)
+        && isOptionalNumber(data, 'rating', 0, 10)
+        && isOptionalString(data, 'review', 10000)
+        && isOptionalInt(data, 'horror_level', 1, 5)
+        && (!('gore_level' in data) || data.gore_level in ['低', '中', '高', '极高'])
+        && isValidScareTypeList(data.scare_types)
+        && (!('watch_method' in data) || data.watch_method in ['独自', '与朋友', '其他'])
+        && data.watch_count is int && data.watch_count >= 1 && data.watch_count <= 999
+        && data.created_at is string && data.created_at.size() >= 1 && data.created_at.size() <= 40
+        && data.updated_at is string && data.updated_at.size() >= 1 && data.updated_at.size() <= 40
+        && isOptionalString(data, 'deleted_at', 40)
+        && data.server_updated_at is timestamp
+        && data.server_updated_at == request.time;
+    }
+
+    function isValidWatchlistItem(data, uid, watchlistId) {
+      return data.keys().hasAll([
+          'uid', 'watchlist_id', 'movie_id', 'added_at', 'updated_at', 'server_updated_at'
+        ])
+        && data.keys().hasOnly([
+          'uid', 'watchlist_id', 'movie_id', 'added_at', 'note',
+          'recommended_by', 'planned_date', 'priority',
+          'updated_at', 'deleted_at', 'server_updated_at'
+        ])
+        && data.uid is string && data.uid == uid && data.uid == request.auth.uid && isValidId(data.uid)
+        && data.watchlist_id is string && data.watchlist_id == watchlistId && isValidId(data.watchlist_id)
+        && data.movie_id is string && isValidId(data.movie_id)
+        && data.added_at is string && data.added_at.size() >= 1 && data.added_at.size() <= 40
+        && isOptionalString(data, 'note', 2000)
+        && isOptionalString(data, 'recommended_by', 120)
+        && isOptionalString(data, 'planned_date', 40)
+        && (!('priority' in data) || data.priority in ['high', 'medium', 'low'])
+        && data.updated_at is string && data.updated_at.size() >= 1 && data.updated_at.size() <= 40
+        && isOptionalString(data, 'deleted_at', 40)
+        && data.server_updated_at is timestamp
+        && data.server_updated_at == request.time;
+    }
+
+    // Global Unique Nickname Claims (no listing allowed; exact get for uniqueness/login lookup only)
+    match /nicknames/{nicknameKey} {
+      allow get: if isValidNicknameKey(nicknameKey);
+      allow list: if false;
+      allow create: if isSignedIn()
+        && isValidNicknameKey(nicknameKey)
+        && isValidNicknameClaim(incoming(), nicknameKey);
+      allow update: if false;
+      allow delete: if isValidNicknameKey(nicknameKey)
+        && isSignedIn()
+        && existing().uid == request.auth.uid;
+    }
+
+    // User Private Profile & Preferences
+    match /users/{uid} {
+      allow get: if isValidId(uid) && isOwner(uid);
+      allow list: if false;
+      allow create: if isOwner(uid) && isValidId(uid) && isValidUserProfile(incoming(), uid);
+      allow update: if isOwner(uid)
+        && isValidId(uid)
+        && isValidUserProfile(incoming(), uid)
+        && incoming().uid == existing().uid
+        && incoming().created_at == existing().created_at
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'email', 'display_name', 'default_watch_method', 'updated_at', 'server_updated_at'
+        ]);
+      allow delete: if isValidId(uid) && isOwner(uid);
+
+      // User Movies
+      match /movies/{movieId} {
+        allow get: if isValidId(uid) && isValidId(movieId) && isOwner(uid);
+        allow list: if isValidId(uid) && isOwner(uid) && resource.data.uid == request.auth.uid;
+        allow create: if isOwner(uid) && isValidId(uid) && isValidId(movieId) && isValidMovie(incoming(), uid, movieId);
+        allow update: if isOwner(uid)
+          && isValidId(uid)
+          && isValidId(movieId)
+          && isValidMovie(incoming(), uid, movieId)
+          && incoming().uid == existing().uid
+          && incoming().movie_id == existing().movie_id
+          && incoming().created_at == existing().created_at
+          && incoming().diff(existing()).affectedKeys().hasOnly([
+            'title', 'original_title', 'poster_url', 'release_date', 'release_year',
+            'director', 'country', 'duration', 'synopsis', 'genres',
+            'external_source', 'external_id', 'external_rating',
+            'updated_at', 'deleted_at', 'server_updated_at'
+          ]);
+        allow delete: if isValidId(uid) && isValidId(movieId) && isOwner(uid);
+      }
+
+      // User Watch Records
+      match /watchRecords/{recordId} {
+        allow get: if isValidId(uid) && isValidId(recordId) && isOwner(uid);
+        allow list: if isValidId(uid) && isOwner(uid) && resource.data.uid == request.auth.uid;
+        allow create: if isOwner(uid) && isValidId(uid) && isValidId(recordId) && isValidWatchRecord(incoming(), uid, recordId);
+        allow update: if isOwner(uid)
+          && isValidId(uid)
+          && isValidId(recordId)
+          && isValidWatchRecord(incoming(), uid, recordId)
+          && incoming().uid == existing().uid
+          && incoming().record_id == existing().record_id
+          && incoming().created_at == existing().created_at
+          && incoming().diff(existing()).affectedKeys().hasOnly([
+            'movie_id', 'watch_date', 'rating', 'review', 'horror_level',
+            'gore_level', 'scare_types', 'watch_method', 'watch_count',
+            'updated_at', 'deleted_at', 'server_updated_at'
+          ]);
+        allow delete: if isValidId(uid) && isValidId(recordId) && isOwner(uid);
+      }
+
+      // User Watchlist Items
+      match /watchlist/{watchlistId} {
+        allow get: if isValidId(uid) && isValidId(watchlistId) && isOwner(uid);
+        allow list: if isValidId(uid) && isOwner(uid) && resource.data.uid == request.auth.uid;
+        allow create: if isOwner(uid) && isValidId(uid) && isValidId(watchlistId) && isValidWatchlistItem(incoming(), uid, watchlistId);
+        allow update: if isOwner(uid)
+          && isValidId(uid)
+          && isValidId(watchlistId)
+          && isValidWatchlistItem(incoming(), uid, watchlistId)
+          && incoming().uid == existing().uid
+          && incoming().watchlist_id == existing().watchlist_id
+          && incoming().added_at == existing().added_at
+          && incoming().diff(existing()).affectedKeys().hasOnly([
+            'movie_id', 'note', 'recommended_by', 'planned_date', 'priority',
+            'updated_at', 'deleted_at', 'server_updated_at'
+          ]);
+        allow delete: if isValidId(uid) && isValidId(watchlistId) && isOwner(uid);
+      }
+    }
+
+    // Independent Cached Movie Metadata Table (exact get by authenticated users; no listing)
+    match /movieMetadataCache/{cacheId} {
+      allow get: if isSignedIn() && isValidId(cacheId);
+      allow list: if false;
+      allow create: if isSignedIn()
+        && isValidId(cacheId)
+        && isValidMovieMetadataCache(incoming(), cacheId);
+      allow update: if isSignedIn()
+        && isValidId(cacheId)
+        && isValidMovieMetadataCache(incoming(), cacheId)
+        && incoming().cache_id == existing().cache_id
+        && incoming().external_source == existing().external_source
+        && incoming().external_id == existing().external_id;
+      allow delete: if false;
+    }
+  }
+}
